@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
+import static java.lang.Double.parseDouble;
+import static java.lang.Integer.parseInt;
+
 public class Controller implements Initializable {
 
     //todo: change parameters for difusion
@@ -34,11 +37,10 @@ public class Controller implements Initializable {
 
     //кількість опадів за місяць
     private static final double quantityOfPrecipation = 88d;
+    //швидкість вітру
+    public static double uValue = 7.5;
 
     public static double[][] windData;
-    public static Coordinate coordinate;
-    public static double uValue;
-    public static double qValue;
 
     @FXML
     private Label oneLabel;
@@ -65,12 +67,6 @@ public class Controller implements Initializable {
     private Label eightLabel;
 
     @FXML
-    private TextField distanceField;
-
-    @FXML
-    private TextField heightSourceField;
-
-    @FXML
     private ComboBox<String> comboBoxForVector;
 
     @FXML
@@ -88,7 +84,7 @@ public class Controller implements Initializable {
     @FXML
     private TextField radiusForHeatMap;
 
-
+//Координати
     @FXML
     private TextField rubX;
     @FXML
@@ -123,52 +119,21 @@ public class Controller implements Initializable {
 
     @FXML
     private void drawHeatmap() {
-        drawHeatMap(1, 100, 5330, 6.5, 100, 100);
+        double z = parseDouble(rubZ.getText());
+        double hEf = comboBoxForH.getValue();
+        double q = getPowerValue();
+        int r = parseInt(radiusForHeatMap.getText());
+        drawHeatMap(3, r, q, uValue, z, hEf);
     }
 
     @FXML
-    public void windData() {
-        var fileopen = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
-        fileopen.showDialog(null, "Виберіть текстовий файл з даними вітру");
-        File file = fileopen.getSelectedFile();
-        String s = file.getPath();
-        List<String> listString = new ArrayList<>();
-        try (BufferedReader br = Files.newBufferedReader(Path.of(s))) {
-            listString = br.lines().collect(Collectors.toList());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        listString = listString.stream().map(v -> v.replaceAll("\\s+", " ").trim()).collect(Collectors.toList());
-        windData = Helper.convertToDoubleArray(listString);
-
-        //filling comboBoxForDays:
-        if (windData.length > 0) {
-            ObservableList<Integer> days = FXCollections.observableArrayList();
-            for (int i = 1; i <= windData.length; i++) {
-                days.add(i);
-            }
-            comboBoxForDays.setItems(days);
-            comboBoxForDays.setValue(days.get(0));
-        }
-    }
-
-    @FXML
-    public void find() {
-        var height = Double.parseDouble(heightSourceField.getText());
-        readCoordinate();
-        readWindValue();
-        readPowerValue();
-        var cValue = getCValueForCoordinate(coordinate, qValue, uValue, height);
-        JOptionPane.showMessageDialog(null, "Result = " + cValue, "Result", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    @FXML
-    public void rubish() {
-        generateHeatMapDataFor1Vector(200, 100, 5330, 3d, 100d, 100d);
-        double x = Double.parseDouble(rubX.getText());
-        double y = Double.parseDouble(rubY.getText());
-        double z = Double.parseDouble(rubZ.getText());
-        System.out.println(getCValueForCoordinate1(new Coordinate(x, y, z), 5330, 3d, 100d));
+    public void findConcentationInDot() {
+        double x = parseDouble(rubX.getText());
+        double y = parseDouble(rubY.getText());
+        double z = parseDouble(rubZ.getText());
+        double hEf = comboBoxForH.getValue();
+        double q = getPowerValue();
+        System.out.println(getCValueForCoordinate1(new Coordinate(x, y, z), q, uValue, hEf));
     }
 
     private double getCValueForCoordinate1(Coordinate coordinate, double q, double u, double h) {
@@ -182,26 +147,6 @@ public class Controller implements Initializable {
                 * (Math.exp(-0.5 * Math.pow(coordinate.getZ() - h, 2) / (sigmaZ * sigmaZ)) + Math.exp(-0.5 * Math.pow(coordinate.getZ() + h, 2) / (sigmaZ * sigmaZ)))
                 * fOp * fChemistry;
         return concentration;
-    }
-
-    //С - концентрация в некоторой точке с координатами x; y; z; q – мощность выброса, г/с;
-    //Н – высота виртуального источника; u - средняя скорость ветра, м/с;
-    private double getCValueForCoordinate(Coordinate coordinate, double q, double u, double h) {
-        double distance = Double.parseDouble(distanceField.getText());
-        double sigmaY = getDifusionForY(distance);
-        double sigmaZ = getDifusionForZ(distance);
-
-        var fOp = getFunctionRozpodilByKvantil(getKvantilForKoefOfOpad(), distance, u);
-        var fChemistry = getFunctionRozpodilByKvantil(getKvantilForKoefOfChemistry(), distance, u);
-
-        double concentration = (q / (2 * Math.PI * sigmaY * sigmaZ * u));
-        if (coordinate.getY() != 0) {
-            concentration *= Math.exp(-0.5 * Math.pow(coordinate.getY(), 2) / (sigmaY * sigmaY));
-        }
-        if (coordinate.getZ() != h) {
-            concentration *= (Math.exp(-0.5 * Math.pow(coordinate.getZ() - h, 2) / (sigmaZ * sigmaZ)) + Math.exp(-0.5 * Math.pow(coordinate.getZ() + h, 2) / (sigmaZ * sigmaZ)));
-        }
-        return concentration * fOp * fChemistry;
     }
 
     //горизонтальна дифузія
@@ -233,40 +178,14 @@ public class Controller implements Initializable {
         return Math.pow(Math.E, -kvantil * distance / u);
     }
 
-    private void readCoordinate() {
-        double distance = Double.parseDouble(distanceField.getText());
-        double z = comboBoxForH.getValue();
-        double x, y;
-        if (comboBoxForVector.getValue().startsWith("1") || comboBoxForVector.getValue().startsWith("5")) {
-            y = distance;
-            x = 1d;//todo
-        } else if (comboBoxForVector.getValue().startsWith("3") || comboBoxForVector.getValue().startsWith("7")) {
-            y = 1d;//todo
-            x = distance;
-        } else {
-            x = distance / Math.sqrt(2);
-            y = distance / Math.sqrt(2);
-        }
-        coordinate = new Coordinate(x, y, z);
-    }
-
-    private void readWindValue() {
-        var windVal = Integer.parseInt(String.valueOf(comboBoxForVector.getValue().charAt(0))) - 1;
-        var day = comboBoxForDays.getValue();
-        uValue = windData[day][windVal];
-    }
-
-    private void readPowerValue() {
+    private double getPowerValue() {
+        double qValue;
         if (comboBoxChemistryElements.getValue().contains("NO2")) {
             qValue = 5330.1;
         } else {
             qValue = 4921.3;
         }
-    }
-
-    private Color getColorForConcentration(double normalization) {
-        // Простая интерполяция от синего (низкая концентрация) к красному (высокая концентрация)
-        return Color.BLUE.interpolate(Color.RED, normalization);
+        return qValue;
     }
 
     private void drawHeatMap(int vector, int radius, double q, double u, double coordinateH, double startH) {
@@ -274,32 +193,31 @@ public class Controller implements Initializable {
         int width = (int) heatmapCanvas.getWidth();
         int height = (int) heatmapCanvas.getHeight();
 
-        // Генерация данных для тепловой карты
-//        double[][] heatMapData = generateHeatMapDataFor1Vector(width, radius, q,  u, coordinateH, startH);
+        double[][] heatMapData1 = generateHeatMapData(width, radius, q,  u, coordinateH, startH);
 //        heatMapData = Helper.divideByMax(heatMapData);
         double[][] heatMapData = Helper.getRandomData(width,width);
 
         switch (vector) {
-            case 1:
+            case 3:
                 for (int x = 0; x < width; x++) {
                     for (int y = 0; y < height; y++) {
                         double value = heatMapData[x][y];// Получаем значение от 0.0 до 1.0
                         if (x <= width/2.0){
                             value = 0.0;
                         }
-                        Color color = getColorForConcentration(value); // Получаем цвет для значения
+                        Color color = getColorForConcentration(value);
                         gc.setFill(color);
-                        gc.fillRect(x, y, 5, 5); // Рисуем пиксель
+                        gc.fillRect(x, y, 5, 5);
                     }
                 }
         }
 
-        Color center = Color.BLACK; // Получаем цвет для значения
+        Color center = Color.BLACK;
         gc.setFill(center);
         gc.fillRect(width / 2, height / 2, 5, 5);
     }
 
-    private double[][] generateHeatMapDataFor1Vector(int width, int radius, double q, double u, double coordinateH, double startH) {
+    private double[][] generateHeatMapData(int width, int radius, double q, double u, double coordinateH, double startH) {
         double step = (double) radius * 2.0 / (double) width;
         double[][] data = new double[width][width];
         // Заполните data реальными значениями
@@ -318,5 +236,48 @@ public class Controller implements Initializable {
             counterWidth = 0;
         }
         return data;
+    }
+
+    private Color getColorForConcentration(double normalization) {
+        return Color.BLUE.interpolate(Color.RED, normalization);
+    }
+
+
+
+
+    /**
+     * Частина яка нижче не використовується
+     */
+
+    @FXML
+    public void windData() {
+        var fileopen = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
+        fileopen.showDialog(null, "Виберіть текстовий файл з даними вітру");
+        File file = fileopen.getSelectedFile();
+        String s = file.getPath();
+        List<String> listString = new ArrayList<>();
+        try (BufferedReader br = Files.newBufferedReader(Path.of(s))) {
+            listString = br.lines().collect(Collectors.toList());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        listString = listString.stream().map(v -> v.replaceAll("\\s+", " ").trim()).collect(Collectors.toList());
+        windData = Helper.convertToDoubleArray(listString);
+
+        //filling comboBoxForDays:
+        if (windData.length > 0) {
+            ObservableList<Integer> days = FXCollections.observableArrayList();
+            for (int i = 1; i <= windData.length; i++) {
+                days.add(i);
+            }
+            comboBoxForDays.setItems(days);
+            comboBoxForDays.setValue(days.get(0));
+        }
+    }
+
+    private void readWindValue() {
+        var windVal = parseInt(String.valueOf(comboBoxForVector.getValue().charAt(0))) - 1;
+        var day = comboBoxForDays.getValue();
+        uValue = windData[day][windVal];
     }
 }
