@@ -4,9 +4,12 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.paint.Color;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileSystemView;
@@ -76,6 +79,24 @@ public class Controller implements Initializable {
     @FXML
     private ComboBox<Integer> comboBoxForH;
 
+    @FXML
+    private ComboBox<String> comboBoxChemistryElements;
+
+    @FXML
+    private Canvas heatmapCanvas;
+
+    @FXML
+    private TextField radiusForHeatMap;
+
+
+    @FXML
+    private TextField rubX;
+    @FXML
+    private TextField rubY;
+    @FXML
+    private TextField rubZ;
+
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         var optionsForVector = FXCollections.observableArrayList(
@@ -94,6 +115,15 @@ public class Controller implements Initializable {
         var optionsForH = FXCollections.observableArrayList(50, 100, 200);
         comboBoxForH.setItems(optionsForH);
         comboBoxForH.setValue(optionsForH.get(1));
+
+        var optionsForChemistry = FXCollections.observableArrayList("SO2", "NO2");
+        comboBoxChemistryElements.setItems(optionsForChemistry);
+        comboBoxChemistryElements.setValue(optionsForChemistry.get(0));
+    }
+
+    @FXML
+    private void drawHeatmap() {
+        drawHeatMap(1, 100, 5330, 6.5, 100, 100);
     }
 
     @FXML
@@ -132,39 +162,64 @@ public class Controller implements Initializable {
         JOptionPane.showMessageDialog(null, "Result = " + cValue, "Result", JOptionPane.INFORMATION_MESSAGE);
     }
 
+    @FXML
+    public void rubish() {
+        generateHeatMapDataFor1Vector(200, 100, 5330, 3d, 100d, 100d);
+        double x = Double.parseDouble(rubX.getText());
+        double y = Double.parseDouble(rubY.getText());
+        double z = Double.parseDouble(rubZ.getText());
+        System.out.println(getCValueForCoordinate1(new Coordinate(x, y, z), 5330, 3d, 100d));
+    }
+
+    private double getCValueForCoordinate1(Coordinate coordinate, double q, double u, double h) {
+        var distance = Math.sqrt(Math.pow(coordinate.getX(), 2) + Math.pow(coordinate.getY(), 2) + Math.pow(coordinate.getZ() - h, 2));
+        var fOp = getFunctionRozpodilByKvantil(getKvantilForKoefOfOpad(), distance, u);
+        var fChemistry = getFunctionRozpodilByKvantil(getKvantilForKoefOfChemistry(), distance, u);
+
+        double sigmaY = getDifusionForY(distance);
+        double sigmaZ = getDifusionForZ(distance);
+        double concentration = (q / (2 * Math.PI * sigmaY * sigmaZ * u)) * Math.exp(-0.5 * Math.pow(coordinate.getY(), 2) / (sigmaY * sigmaY))
+                * (Math.exp(-0.5 * Math.pow(coordinate.getZ() - h, 2) / (sigmaZ * sigmaZ)) + Math.exp(-0.5 * Math.pow(coordinate.getZ() + h, 2) / (sigmaZ * sigmaZ)))
+                * fOp * fChemistry;
+        return concentration;
+    }
+
     //С - концентрация в некоторой точке с координатами x; y; z; q – мощность выброса, г/с;
     //Н – высота виртуального источника; u - средняя скорость ветра, м/с;
     private double getCValueForCoordinate(Coordinate coordinate, double q, double u, double h) {
-        var difusionY = getDifusionForY(coordinate.getX());
-        var difusionZ = getDifusionForZ(coordinate.getX());
-        double firstPart = q / (2 * Math.PI * u);
-        if (difusionY != 0){
-            firstPart /= difusionY;
+        double distance = Double.parseDouble(distanceField.getText());
+        double sigmaY = getDifusionForY(distance);
+        double sigmaZ = getDifusionForZ(distance);
+
+        var fOp = getFunctionRozpodilByKvantil(getKvantilForKoefOfOpad(), distance, u);
+        var fChemistry = getFunctionRozpodilByKvantil(getKvantilForKoefOfChemistry(), distance, u);
+
+        double concentration = (q / (2 * Math.PI * sigmaY * sigmaZ * u));
+        if (coordinate.getY() != 0) {
+            concentration *= Math.exp(-0.5 * Math.pow(coordinate.getY(), 2) / (sigmaY * sigmaY));
         }
-        if (difusionZ != 0){
-            firstPart /= difusionZ;
+        if (coordinate.getZ() != h) {
+            concentration *= (Math.exp(-0.5 * Math.pow(coordinate.getZ() - h, 2) / (sigmaZ * sigmaZ)) + Math.exp(-0.5 * Math.pow(coordinate.getZ() + h, 2) / (sigmaZ * sigmaZ)));
         }
-        double partByY = Math.pow(Math.E, (-Math.pow(coordinate.getY(), 2) / (2 * Math.pow(getDifusionForY(coordinate.getX()), 2))));
-        double partByZ = Math.pow(Math.E, (-Math.pow(coordinate.getZ() - h, 2) / (2 * Math.pow(getDifusionForY(coordinate.getX()), 2)))) +
-                (Math.pow(Math.E, (-Math.pow(coordinate.getZ() + h, 2) / (2 * Math.pow(getDifusionForY(coordinate.getX()), 2)))));
-        var fOp = getFunctionRozpodilByKvantil(getKvantilForKoefOfOpad(), coordinate.getX(), u);
-        var fChemistry = getFunctionRozpodilByKvantil(getKvantilForKoefOfChemistry(), coordinate.getX(), u);
-        double c = firstPart * partByY * partByZ * fOp * fChemistry;
-        return c;
+        return concentration * fOp * fChemistry;
     }
 
     //горизонтальна дифузія
-    private double getDifusionForY(double x) {
-        return aDifusion * Math.pow(x, alfaDifusion);//TODO: HERE WILL BE DISTANCE
+    private double getDifusionForY(double distance) {
+        return aDifusion * Math.pow(distance, alfaDifusion);
     }
 
     //вертикальна дифузія
-    private double getDifusionForZ(double x) {
-        return bDifusion * Math.pow(x, betaDifusion);
+    private double getDifusionForZ(double distance) {
+        return bDifusion * Math.pow(distance, betaDifusion);
     }
 
     private double getKvantilForKoefOfChemistry() {
-        return 14 * 0.000001 + 3 * 0.000001;//todo: clarify formula one more time. Shall I add SO2 and NO2?
+        if (comboBoxChemistryElements.getValue().contains("NO2")) {
+            return 3 * 0.000001;
+        } else {
+            return 14 * 0.000001;
+        }
     }
 
     private double getKvantilForKoefOfOpad() {
@@ -174,8 +229,8 @@ public class Controller implements Initializable {
         return kvantilOp;
     }
 
-    private double getFunctionRozpodilByKvantil(double kvantil, double x, double u) {
-        return Math.pow(Math.E, -kvantil * x / u);//todo: clarify or it depends on H(popov formula number 9)
+    private double getFunctionRozpodilByKvantil(double kvantil, double distance, double u) {
+        return Math.pow(Math.E, -kvantil * distance / u);
     }
 
     private void readCoordinate() {
@@ -184,9 +239,9 @@ public class Controller implements Initializable {
         double x, y;
         if (comboBoxForVector.getValue().startsWith("1") || comboBoxForVector.getValue().startsWith("5")) {
             y = distance;
-            x = 0d;
+            x = 1d;//todo
         } else if (comboBoxForVector.getValue().startsWith("3") || comboBoxForVector.getValue().startsWith("7")) {
-            y = 0d;
+            y = 1d;//todo
             x = distance;
         } else {
             x = distance / Math.sqrt(2);
@@ -202,6 +257,66 @@ public class Controller implements Initializable {
     }
 
     private void readPowerValue() {
-        qValue = 4921.3;//TODO: SO2 and NO2
+        if (comboBoxChemistryElements.getValue().contains("NO2")) {
+            qValue = 5330.1;
+        } else {
+            qValue = 4921.3;
+        }
+    }
+
+    private Color getColorForConcentration(double normalization) {
+        // Простая интерполяция от синего (низкая концентрация) к красному (высокая концентрация)
+        return Color.BLUE.interpolate(Color.RED, normalization);
+    }
+
+    private void drawHeatMap(int vector, int radius, double q, double u, double coordinateH, double startH) {
+        GraphicsContext gc = heatmapCanvas.getGraphicsContext2D();
+        int width = (int) heatmapCanvas.getWidth();
+        int height = (int) heatmapCanvas.getHeight();
+
+        // Генерация данных для тепловой карты
+//        double[][] heatMapData = generateHeatMapDataFor1Vector(width, radius, q,  u, coordinateH, startH);
+//        heatMapData = Helper.divideByMax(heatMapData);
+        double[][] heatMapData = Helper.getRandomData(width,width);
+
+        switch (vector) {
+            case 1:
+                for (int x = 0; x < width; x++) {
+                    for (int y = 0; y < height; y++) {
+                        double value = heatMapData[x][y];// Получаем значение от 0.0 до 1.0
+                        if (x <= width/2.0){
+                            value = 0.0;
+                        }
+                        Color color = getColorForConcentration(value); // Получаем цвет для значения
+                        gc.setFill(color);
+                        gc.fillRect(x, y, 5, 5); // Рисуем пиксель
+                    }
+                }
+        }
+
+        Color center = Color.BLACK; // Получаем цвет для значения
+        gc.setFill(center);
+        gc.fillRect(width / 2, height / 2, 5, 5);
+    }
+
+    private double[][] generateHeatMapDataFor1Vector(int width, int radius, double q, double u, double coordinateH, double startH) {
+        double step = (double) radius * 2.0 / (double) width;
+        double[][] data = new double[width][width];
+        // Заполните data реальными значениями
+        int counterWidth = 0;
+        int counterHeight = -1;
+        for (double i = 0; i < radius; i += step) {
+            counterHeight++;
+            for (double j = -radius; j < radius; j += step) {
+                if (i == 0 && j == 0) {
+                    data[counterHeight][counterWidth] = 0d;
+                } else {
+                    data[counterHeight][counterWidth] = getCValueForCoordinate1(new Coordinate(i, j, coordinateH), q, u, startH);
+                }
+                counterWidth++;
+            }
+            counterWidth = 0;
+        }
+        return data;
     }
 }
