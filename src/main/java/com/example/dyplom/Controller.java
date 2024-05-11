@@ -36,9 +36,9 @@ public class Controller implements Initializable {
     private static final double bDifusion = 0.22;
 
     //кількість опадів за місяць
-    private static final double quantityOfPrecipation = 88d;
+    private static final double quantityOfPrecipation = 80d;
     //швидкість вітру
-    public static double uValue = 7.5;
+    public static double uValue = 15.5;
 
     public static double[][] windData;
 
@@ -84,7 +84,7 @@ public class Controller implements Initializable {
     @FXML
     private TextField radiusForHeatMap;
 
-//Координати
+    //Координати
     @FXML
     private TextField rubX;
     @FXML
@@ -123,7 +123,7 @@ public class Controller implements Initializable {
         double hEf = comboBoxForH.getValue();
         double q = getPowerValue();
         int r = parseInt(radiusForHeatMap.getText());
-        drawHeatMap(3, r, q, uValue, z, hEf);
+        drawHeatMap(4, r, q, uValue, z, hEf);
     }
 
     @FXML
@@ -138,8 +138,8 @@ public class Controller implements Initializable {
 
     private double getCValueForCoordinate1(Coordinate coordinate, double q, double u, double h) {
         var distance = Math.sqrt(Math.pow(coordinate.getX(), 2) + Math.pow(coordinate.getY(), 2) + Math.pow(coordinate.getZ() - h, 2));
-        var fOp = getFunctionRozpodilByKvantil(getKvantilForKoefOfOpad(), distance, u);
-        var fChemistry = getFunctionRozpodilByKvantil(getKvantilForKoefOfChemistry(), distance, u);
+        var fOp = getFunctionRozpodilByKvantil(getKvantilForKoefOfOpad(), distance, u, h);
+        var fChemistry = getFunctionRozpodilByKvantil(getKvantilForKoefOfChemistry(), distance, u, h);
 
         double sigmaY = getDifusionForY(distance);
         double sigmaZ = getDifusionForZ(distance);
@@ -174,8 +174,8 @@ public class Controller implements Initializable {
         return kvantilOp;
     }
 
-    private double getFunctionRozpodilByKvantil(double kvantil, double distance, double u) {
-        return Math.pow(Math.E, -kvantil * distance / u);
+    private double getFunctionRozpodilByKvantil(double kvantil, double distance, double u, double hEf) {
+        return Math.pow(Math.E, -kvantil * distance / u / hEf);
     }
 
     private double getPowerValue() {
@@ -193,43 +193,85 @@ public class Controller implements Initializable {
         int width = (int) heatmapCanvas.getWidth();
         int height = (int) heatmapCanvas.getHeight();
 
-        double[][] heatMapData1 = generateHeatMapData(width, radius, q,  u, coordinateH, startH);
-//        heatMapData = Helper.divideByMax(heatMapData);
-        double[][] heatMapData = Helper.getRandomData(width,width);
+        double[][] heatMapData = generateHeatMapData(width, radius, q, u, coordinateH, startH);
 
         switch (vector) {
-            case 3:
+            case 1:
+                int tempY = 0;
+                for (int y = height - 1; y >= 0; y--) {
+                    int tempX = 0;
+                    for (int x = width - 1; x >= 0; x--) {
+                        double value = heatMapData[y][x];
+                        Color color = getColorForConcentration(value);
+                        gc.setFill(color);
+                        gc.fillRect(tempX, tempY, 5, 5);
+                        tempX++;
+                    }
+                    tempX = 0;
+                    tempY++;
+                }
+                break;
+
+
+            case 2:
                 for (int x = 0; x < width; x++) {
                     for (int y = 0; y < height; y++) {
-                        double value = heatMapData[x][y];// Получаем значение от 0.0 до 1.0
-                        if (x <= width/2.0){
-                            value = 0.0;
-                        }
+                        double value = heatMapData[x][y];
                         Color color = getColorForConcentration(value);
                         gc.setFill(color);
                         gc.fillRect(x, y, 5, 5);
                     }
                 }
+                break;
+
+            case 3:
+                for (int x = 0; x < width; x++) {
+                    for (int y = 0; y < height; y++) {
+                        double value = heatMapData[y][x];
+                        Color color = getColorForConcentration(value);
+                        gc.setFill(color);
+                        gc.fillRect(x, y, 5, 5);
+                    }
+                }
+                break;
+
+
+            case 4:
+                int tempY4 = 0;
+                for (int y = height - 1; y >= 0; y--) {
+                    int tempX4 = 0;
+                    for (int x = width - 1; x >= 0; x--) {
+                        double value = heatMapData[x][y];
+                        Color color = getColorForConcentration(value);
+                        gc.setFill(color);
+                        gc.fillRect(tempX4, tempY4, 5, 5);
+                        tempX4++;
+                    }
+                    tempX4 = 0;
+                    tempY4++;
+                }
+                break;
+
         }
 
-        Color center = Color.BLACK;
-        gc.setFill(center);
-        gc.fillRect(width / 2, height / 2, 5, 5);
+//        Color center = Color.BLACK;
+//        gc.setFill(center);
+//        gc.fillRect(width / 2, height / 2, 10, 10);
     }
 
     private double[][] generateHeatMapData(int width, int radius, double q, double u, double coordinateH, double startH) {
         double step = (double) radius * 2.0 / (double) width;
         double[][] data = new double[width][width];
-        // Заполните data реальными значениями
         int counterWidth = 0;
-        int counterHeight = -1;
+        int counterHeight = width / 2 - 1;
         for (double i = 0; i < radius; i += step) {
             counterHeight++;
             for (double j = -radius; j < radius; j += step) {
                 if (i == 0 && j == 0) {
                     data[counterHeight][counterWidth] = 0d;
                 } else {
-                    data[counterHeight][counterWidth] = getCValueForCoordinate1(new Coordinate(i, j, coordinateH), q, u, startH);
+                    double val = getCValueForCoordinate1(new Coordinate(i, j, coordinateH), q, u, startH);
+                    data[counterHeight][counterWidth] = val;
                 }
                 counterWidth++;
             }
@@ -241,8 +283,6 @@ public class Controller implements Initializable {
     private Color getColorForConcentration(double normalization) {
         return Color.BLUE.interpolate(Color.RED, normalization);
     }
-
-
 
 
     /**
@@ -279,5 +319,19 @@ public class Controller implements Initializable {
         var windVal = parseInt(String.valueOf(comboBoxForVector.getValue().charAt(0))) - 1;
         var day = comboBoxForDays.getValue();
         uValue = windData[day][windVal];
+    }
+
+    public double[][] transposeMatrix(double[][] matrix) {
+        int rows = matrix.length;
+        int cols = matrix[0].length;
+        double[][] transposed = new double[cols][rows];
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                transposed[j][i] = matrix[i][j];
+            }
+        }
+
+        return transposed;
     }
 }
