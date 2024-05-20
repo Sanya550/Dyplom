@@ -7,7 +7,6 @@ import javafx.fxml.Initializable;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.paint.Color;
 
@@ -28,46 +27,25 @@ import static java.lang.Integer.parseInt;
 
 public class Controller implements Initializable {
 
-    //todo: change parameters for difusion
-    //berliand page 43, when H = 100 meters, stan = 3;
-    private static final double alfaDifusion = 0.78;
-    private static final double aDifusion = 0.32;
-    private static final double betaDifusion = 0.78;
-    private static final double bDifusion = 0.22;
+    /**
+     * data вітру(4 сторони) + кількість опадів за місяць
+     * гдк
+     * функціонал?
+     */
+
+    //berliand page 43 stan = 3;
+    private static double alfaDifusion;
+    private static double aDifusion;
+    private static double betaDifusion;
+    private static double bDifusion;
 
     //кількість опадів за місяць
-    private static final double quantityOfPrecipation = 80d;
+    private static final double quantityOfPrecipation = 5d;
+
     //швидкість вітру
     public static double uValue = 15.5;
 
     public static double[][] windData;
-
-    @FXML
-    private Label oneLabel;
-
-    @FXML
-    private Label twoLabel;
-
-    @FXML
-    private Label threeLabel;
-
-    @FXML
-    private Label fourLabel;
-
-    @FXML
-    private Label fiveLabel;
-
-    @FXML
-    private Label sixLabel;
-
-    @FXML
-    private Label sevenLabel;
-
-    @FXML
-    private Label eightLabel;
-
-    @FXML
-    private ComboBox<String> comboBoxForVector;
 
     @FXML
     private ComboBox<Integer> comboBoxForDays;
@@ -95,19 +73,6 @@ public class Controller implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        var optionsForVector = FXCollections.observableArrayList(
-                "1 - Північ",
-                "2 - Північно-східний",
-                "3 - Східний",
-                "4 - Південно-східний",
-                "5 - Південний",
-                "6 - Південно-західний",
-                "7 - Західний",
-                "8 - Північно-західний"
-        );
-        comboBoxForVector.setItems(optionsForVector);
-        comboBoxForVector.setValue(optionsForVector.get(0));
-
         var optionsForH = FXCollections.observableArrayList(50, 100, 200);
         comboBoxForH.setItems(optionsForH);
         comboBoxForH.setValue(optionsForH.get(1));
@@ -123,7 +88,7 @@ public class Controller implements Initializable {
         double hEf = comboBoxForH.getValue();
         double q = getPowerValue();
         int r = parseInt(radiusForHeatMap.getText());
-        drawHeatMap(4, r, q, uValue, z, hEf);
+        drawHeatMap(5, r, q, uValue, z, hEf);
     }
 
     @FXML
@@ -151,11 +116,37 @@ public class Controller implements Initializable {
 
     //горизонтальна дифузія
     private double getDifusionForY(double distance) {
+        var val = comboBoxForH.getValue();
+        if (val == 50) {
+            alfaDifusion = 0.89;
+            aDifusion = 0.14;
+        } else if (val == 100) {
+            alfaDifusion = 0.78;
+            aDifusion = 0.32;
+        } else if (val == 200) {
+            alfaDifusion = 0.76;
+            aDifusion = 0.37;
+        } else {
+            throw new RuntimeException("ERROR!!!");
+        }
         return aDifusion * Math.pow(distance, alfaDifusion);
     }
 
     //вертикальна дифузія
     private double getDifusionForZ(double distance) {
+        var val = comboBoxForH.getValue();
+        if (val == 50) {
+            betaDifusion = 0.65;
+            bDifusion = 0.73;
+        } else if (val == 100) {
+            betaDifusion = 0.78;
+            bDifusion = 0.22;
+        } else if (val == 200) {
+            betaDifusion = 2.44;
+            bDifusion = 0.34;
+        } else {
+            throw new RuntimeException("ERROR!!!");
+        }
         return bDifusion * Math.pow(distance, betaDifusion);
     }
 
@@ -252,12 +243,96 @@ public class Controller implements Initializable {
                 }
                 break;
 
+            case 5:
+                for (int i = 0; i < width; i++) {
+                    for (int j = 0; j < height; j++) {
+                        double value = 0d;
+                        Color color = getColorForConcentration(value);
+                        gc.setFill(color);
+                        gc.fillRect(i, j, 5, 5);
+                    }
+                }
+
+                var angle = radius;
+                heatMapData = divideOnTwoMatrix(generateHeatMapData(width, (int) angle, q, u, coordinateH, startH));
+
+                int y1 = heatMapData[0].length - 1;
+                int x1 = 0;
+                for (int x = width / 2; x < width; x++) {
+                    for (int y = x; y < width; y++) {
+                        double value = heatMapData[x1][y1];
+                        Color color = getColorForConcentration(value);
+                        gc.setFill(color);
+                        gc.fillRect(x, y, 5, 5);
+                        y1--;
+                    }
+
+                    y1 = heatMapData[0].length - 1;
+                    for (int y = x; y > width/2; y--) {
+                        double value = heatMapData[x1][y1];
+                        Color color = getColorForConcentration(value);
+                        gc.setFill(color);
+                        gc.fillRect(x, y, 5, 5);
+                        y1--;
+                    }
+
+                    y1 = heatMapData[0].length - 1;
+                    x1++;
+                }
+
+                Color color = getColorForConcentration(0d);
+                gc.setFill(color);
+                gc.fillRect(width/2, width/2, 5, 5);
+                break;
+
+            case 6:
+                for (int i = 0; i < width; i++) {
+                    for (int j = 0; j < height; j++) {
+                        double value = 0d;
+                        Color color1 = getColorForConcentration(value);
+                        gc.setFill(color1);
+                        gc.fillRect(i, j, 5, 5);
+                    }
+                }
+
+                var angle1 = radius;
+                heatMapData = divideOnTwoMatrix(generateHeatMapData(width, (int) angle1, q, u, coordinateH, startH));
+
+                int y6 = heatMapData[0].length - 1;
+                int x6 = 0;
+                for (int x = 0; x < width / 2; x++) {
+                    for (int y = x; y < width/2; y++) {
+                        double value = heatMapData[x6][y6];
+                        Color color6 = getColorForConcentration(value);
+                        gc.setFill(color6);
+                        gc.fillRect(x, y, 5, 5);
+                        y6--;
+                    }
+
+//                    y1 = heatMapData[0].length - 1;
+//                    for (int y = x; y < width/2; y++) {
+//                        double value = heatMapData[x6][y6];
+//                        Color color6 = getColorForConcentration(value);
+//                        gc.setFill(color6);
+//                        gc.fillRect(x, y, 5, 5);
+//                        y6--;
+//                    }
+
+                    y6 = heatMapData[0].length - 1;
+                    x6++;
+                }
+
+                Color color6 = getColorForConcentration(0d);
+                gc.setFill(color6);
+                gc.fillRect(width/2, width/2, 5, 5);
+                break;
         }
+    }
 
 //        Color center = Color.BLACK;
 //        gc.setFill(center);
 //        gc.fillRect(width / 2, height / 2, 10, 10);
-    }
+
 
     private double[][] generateHeatMapData(int width, int radius, double q, double u, double coordinateH, double startH) {
         double step = (double) radius * 2.0 / (double) width;
@@ -267,13 +342,17 @@ public class Controller implements Initializable {
         for (double i = 0; i < radius; i += step) {
             counterHeight++;
             for (double j = -radius; j < radius; j += step) {
-                if (i == 0 && j == 0) {
-                    data[counterHeight][counterWidth] = 0d;
-                } else {
-                    double val = getCValueForCoordinate1(new Coordinate(i, j, coordinateH), q, u, startH);
-                    data[counterHeight][counterWidth] = val;
+                try {
+                    if (i == 0 && j == 0) {
+                        data[counterHeight][counterWidth] = 0d;
+                    } else {
+                        double val = getCValueForCoordinate1(new Coordinate(i, j, coordinateH), q, u, startH);
+                        data[counterHeight][counterWidth] = val;
+                    }
+                    counterWidth++;
+                } catch (ArrayIndexOutOfBoundsException e){
+
                 }
-                counterWidth++;
             }
             counterWidth = 0;
         }
@@ -316,22 +395,20 @@ public class Controller implements Initializable {
     }
 
     private void readWindValue() {
-        var windVal = parseInt(String.valueOf(comboBoxForVector.getValue().charAt(0))) - 1;
-        var day = comboBoxForDays.getValue();
-        uValue = windData[day][windVal];
+//        var windVal = parseInt(String.valueOf(comboBoxForVector.getValue().charAt(0))) - 1;
+//        var day = comboBoxForDays.getValue();
+//        uValue = windData[day][windVal];
     }
 
-    public double[][] transposeMatrix(double[][] matrix) {
-        int rows = matrix.length;
-        int cols = matrix[0].length;
-        double[][] transposed = new double[cols][rows];
-
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                transposed[j][i] = matrix[i][j];
+    private double[][] divideOnTwoMatrix(double[][] matrix) {
+        double[][] res = new double[matrix.length / 2][matrix.length / 2];
+        int c = 0;
+        for (int i = matrix.length / 2; i < matrix.length; i++) {
+            for (int j = 0; j < matrix.length / 2; j++) {
+                res[c][j] = matrix[i][j];
             }
+            c++;
         }
-
-        return transposed;
+        return res;
     }
 }
