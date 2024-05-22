@@ -88,7 +88,7 @@ public class Controller implements Initializable {
         double hEf = comboBoxForH.getValue();
         double q = getPowerValue();
         int r = parseInt(radiusForHeatMap.getText());
-        drawHeatMap(5, r, q, uValue, z, hEf);
+        drawHeatMap(2, r, q, uValue, z, hEf);
     }
 
     @FXML
@@ -204,7 +204,7 @@ public class Controller implements Initializable {
                 break;
 
 
-            case 2:
+            case 3:
                 for (int x = 0; x < width; x++) {
                     for (int y = 0; y < height; y++) {
                         double value = heatMapData[x][y];
@@ -215,7 +215,7 @@ public class Controller implements Initializable {
                 }
                 break;
 
-            case 3:
+            case 5:
                 for (int x = 0; x < width; x++) {
                     for (int y = 0; y < height; y++) {
                         double value = heatMapData[y][x];
@@ -227,7 +227,7 @@ public class Controller implements Initializable {
                 break;
 
 
-            case 4:
+            case 7:
                 int tempY4 = 0;
                 for (int y = height - 1; y >= 0; y--) {
                     int tempX4 = 0;
@@ -243,7 +243,7 @@ public class Controller implements Initializable {
                 }
                 break;
 
-            case 5:
+            case 4:
                 for (int i = 0; i < width; i++) {
                     for (int j = 0; j < height; j++) {
                         double value = 0d;
@@ -268,7 +268,7 @@ public class Controller implements Initializable {
                     }
 
                     y1 = heatMapData[0].length - 1;
-                    for (int y = x; y > width/2; y--) {
+                    for (int y = x; y > width / 2; y--) {
                         double value = heatMapData[x1][y1];
                         Color color = getColorForConcentration(value);
                         gc.setFill(color);
@@ -282,41 +282,42 @@ public class Controller implements Initializable {
 
                 Color color = getColorForConcentration(0d);
                 gc.setFill(color);
-                gc.fillRect(width/2, width/2, 5, 5);
+                gc.fillRect(width / 2, width / 2, 5, 5);
                 break;
 
-            case 6:
+            case 8:
                 for (int i = 0; i < width; i++) {
                     for (int j = 0; j < height; j++) {
                         double value = 0d;
-                        Color color1 = getColorForConcentration(value);
-                        gc.setFill(color1);
+                        Color color6 = getColorForConcentration(value);
+                        gc.setFill(color6);
                         gc.fillRect(i, j, 5, 5);
                     }
                 }
 
-                var angle1 = radius;
-                heatMapData = divideOnTwoMatrix(generateHeatMapData(width, (int) angle1, q, u, coordinateH, startH));
+                var angle6 = radius;
+                heatMapData = divideOnTwoMatrix(generateHeatMapData(width, (int) angle6, q, u, coordinateH, startH));
 
                 int y6 = heatMapData[0].length - 1;
                 int x6 = 0;
-                for (int x = 0; x < width / 2; x++) {
-                    for (int y = x; y < width/2; y++) {
-                        double value = heatMapData[x6][y6];
-                        Color color6 = getColorForConcentration(value);
+                for (int x = width / 2 - 1; x >= 0; x--) {
+                    for (int y = x; y < width / 2; y++) {
+                        double value6 = heatMapData[x6][y6];
+                        Color color6 = getColorForConcentration(value6);
                         gc.setFill(color6);
                         gc.fillRect(x, y, 5, 5);
                         y6--;
                     }
 
-//                    y1 = heatMapData[0].length - 1;
-//                    for (int y = x; y < width/2; y++) {
-//                        double value = heatMapData[x6][y6];
-//                        Color color6 = getColorForConcentration(value);
-//                        gc.setFill(color6);
-//                        gc.fillRect(x, y, 5, 5);
-//                        y6--;
-//                    }
+                    y6 = heatMapData[0].length - 1;
+                    for (int y = x; y >= 0; y--) {
+                        double value = heatMapData[x6][y6];
+                        Color color6 = getColorForConcentration(value);
+                        gc.setFill(color6);
+                        gc.fillRect(x, y, 5, 5);
+                        y6--;
+
+                    }
 
                     y6 = heatMapData[0].length - 1;
                     x6++;
@@ -324,9 +325,101 @@ public class Controller implements Initializable {
 
                 Color color6 = getColorForConcentration(0d);
                 gc.setFill(color6);
-                gc.fillRect(width/2, width/2, 5, 5);
+                gc.fillRect(width / 2, width / 2, 5, 5);
+                break;
+
+            case 6:
+                for (int i = 0; i < width; i++) {
+                    for (int j = 0; j < height; j++) {
+                        double value = 0d;
+                        Color color2 = getColorForConcentration(value);
+                        gc.setFill(color2);
+                        gc.fillRect(i, j, 5, 5);
+                    }
+                }
+
+                var angle2 = radius;
+                heatMapData = divideOnTwoMatrix(generateHeatMapData(width, (int) angle2, q, u, coordinateH, startH));
+
+                int y2 = heatMapData[0].length - 1;
+                int x2 = 0;
+                for (int x = width / 2 - 1; x >= 0; x--) {
+                    for (int y = x; y < width / 2; y++) {
+                        double value2 = heatMapData[x2][y2];
+                        Color color2 = getColorForConcentration(value2);
+                        gc.setFill(color2);
+                        gc.fillRect(x, height - y, 5, 5);
+                        y2--;
+                    }
+
+                    y2 = heatMapData[0].length - 1;
+                    for (int y = x; y >= 0; y--) {
+                        double value = heatMapData[x2][y2];
+                        Color color2 = getColorForConcentration(value);
+                        gc.setFill(color2);
+                        gc.fillRect(x, height -y, 5, 5);
+                        y2--;
+
+                    }
+
+                    y2 = heatMapData[0].length - 1;
+                    x2++;
+                }
+
+                Color color2 = getColorForConcentration(0d);
+                gc.setFill(color2);
+                gc.fillRect(width / 2, width / 2, 5, 5);
+                break;
+
+
+            case 2:
+                for (int i = 0; i < width; i++) {
+                    for (int j = 0; j < height; j++) {
+                        double value = 0d;
+                        Color color3 = getColorForConcentration(value);
+                        gc.setFill(color3);
+                        gc.fillRect(i, j, 5, 5);
+                    }
+                }
+
+                var angle3 = radius;
+                heatMapData = divideOnTwoMatrix(generateHeatMapData(width, (int) angle3, q, u, coordinateH, startH));
+
+                int y3 = heatMapData[0].length - 1;
+                int x3 = 0;
+                for (int x = width / 2 - 1; x >= 0; x--) {
+                    for (int y = x; y < width / 2; y++) {
+                        double value6 = heatMapData[x3][y3];
+                        Color color3 = getColorForConcentration(value6);
+                        gc.setFill(color3);
+                        gc.fillRect(width - x, y, 5, 5);
+                        y3--;
+                    }
+
+                    y3 = heatMapData[0].length - 1;
+                    for (int y = x; y >= 0; y--) {
+                        double value = heatMapData[x3][y3];
+                        Color color3 = getColorForConcentration(value);
+                        gc.setFill(color3);
+                        gc.fillRect(width - x, y, 5, 5);
+                        y3--;
+
+                    }
+
+                    y3 = heatMapData[0].length - 1;
+                    x3++;
+                }
+
+                Color color3 = getColorForConcentration(0d);
+                gc.setFill(color3);
+                gc.fillRect(width / 2, width / 2, 5, 5);
                 break;
         }
+
+
+
+
+
     }
 
 //        Color center = Color.BLACK;
@@ -350,7 +443,7 @@ public class Controller implements Initializable {
                         data[counterHeight][counterWidth] = val;
                     }
                     counterWidth++;
-                } catch (ArrayIndexOutOfBoundsException e){
+                } catch (ArrayIndexOutOfBoundsException e) {
 
                 }
             }
