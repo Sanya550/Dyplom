@@ -9,6 +9,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextField;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileSystemView;
@@ -17,9 +18,7 @@ import java.io.File;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.ResourceBundle;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.Double.parseDouble;
@@ -28,10 +27,11 @@ import static java.lang.Integer.parseInt;
 public class Controller implements Initializable {
 
     /**
-     * data вітру(4 сторони) + кількість опадів за місяць
-     * гдк
-     * функціонал?
+     * Середньодобова vs Максимально разова ГДК
      */
+    //todo for Average GDK: SO2 = 0.05, NO2 = 0.04
+    private static final double MAX_GDK_SO2 = 0.5;
+    private static final double MAX_GDK_NO2 = 0.2;
 
     //berliand page 43 stan = 3;
     private static double alfaDifusion;
@@ -40,15 +40,17 @@ public class Controller implements Initializable {
     private static double bDifusion;
 
     //кількість опадів за місяць
-    private static final double quantityOfPrecipation = 5d;
+    private static double quantityOfPrecipation;
 
     //швидкість вітру
-    public static double uValue = 15.5;
+    public static double uValue;
 
-    public static double[][] windData;
+    public static int vectorOfWind;
+
+    public static Map<String, List<Double>> dataMap = new LinkedHashMap<>();
 
     @FXML
-    private ComboBox<Integer> comboBoxForDays;
+    private ComboBox<String> comboBoxForDays;
 
     @FXML
     private ComboBox<Integer> comboBoxForH;
@@ -70,9 +72,20 @@ public class Controller implements Initializable {
     @FXML
     private TextField rubZ;
 
+    @FXML
+    private Circle circle1;
+
+    @FXML
+    private Circle circle2;
+
+    @FXML
+    private Circle circle3;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        circle1.setFill(Color.GREEN);
+        circle2.setFill(Color.RED);
+        circle3.setFill(Color.BLUE);
         var optionsForH = FXCollections.observableArrayList(50, 100, 200);
         comboBoxForH.setItems(optionsForH);
         comboBoxForH.setValue(optionsForH.get(1));
@@ -84,21 +97,26 @@ public class Controller implements Initializable {
 
     @FXML
     private void drawHeatmap() {
+        vectorOfWind = (int)Math.round(dataMap.get(comboBoxForDays.getValue()).get(0));
+        uValue = dataMap.get(comboBoxForDays.getValue()).get(1);
         double z = parseDouble(rubZ.getText());
         double hEf = comboBoxForH.getValue();
         double q = getPowerValue();
         int r = parseInt(radiusForHeatMap.getText());
-        drawHeatMap(2, r, q, uValue, z, hEf);
+        drawHeatMap(vectorOfWind, r, q, uValue, z, hEf);
     }
 
     @FXML
     public void findConcentationInDot() {
+        uValue = dataMap.get(comboBoxForDays.getValue()).get(1);
         double x = parseDouble(rubX.getText());
         double y = parseDouble(rubY.getText());
         double z = parseDouble(rubZ.getText());
         double hEf = comboBoxForH.getValue();
         double q = getPowerValue();
-        System.out.println(getCValueForCoordinate1(new Coordinate(x, y, z), q, uValue, hEf));
+        double c = getCValueForCoordinate1(new Coordinate(x, y, z), q, uValue, hEf);
+        String textGdk = gdkValueIsAcceptable(c) ? "\nРівень концентрації є прийнятним!" : "\nРівень концентрації перевищує допустиму норму!";
+        JOptionPane.showMessageDialog(null, "Концентрація дорівнює " + String.format("%.1E", c) + textGdk, "Details", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private double getCValueForCoordinate1(Coordinate coordinate, double q, double u, double h) {
@@ -159,6 +177,7 @@ public class Controller implements Initializable {
     }
 
     private double getKvantilForKoefOfOpad() {
+        quantityOfPrecipation = dataMap.get(comboBoxForDays.getValue()).get(2);
         var i = quantityOfPrecipation / (24 * 30);
         var kvantilOp = i <= 0.2 ? 11.8 * Math.pow(i, 0.9) * Math.pow(Math.E, -2 * i) : 7 * Math.pow(i - 0.1, 0.575);
         kvantilOp *= 0.00001;
@@ -357,7 +376,7 @@ public class Controller implements Initializable {
                         double value = heatMapData[x2][y2];
                         Color color2 = getColorForConcentration(value);
                         gc.setFill(color2);
-                        gc.fillRect(x, height -y, 5, 5);
+                        gc.fillRect(x, height - y, 5, 5);
                         y2--;
 
                     }
@@ -415,11 +434,6 @@ public class Controller implements Initializable {
                 gc.fillRect(width / 2, width / 2, 5, 5);
                 break;
         }
-
-
-
-
-
     }
 
 //        Color center = Color.BLACK;
@@ -453,7 +467,17 @@ public class Controller implements Initializable {
     }
 
     private Color getColorForConcentration(double normalization) {
-        return Color.BLUE.interpolate(Color.RED, normalization);
+        return gdkValueIsAcceptable(normalization) ? Color.BLUE.interpolate(Color.RED, normalization) : Color.GREEN;
+    }
+
+    private boolean gdkValueIsAcceptable(double c) {
+        var gdk = 0d;
+        if (comboBoxChemistryElements.getValue().contains("NO2")) {
+            gdk = MAX_GDK_NO2;
+        } else {
+            gdk = MAX_GDK_SO2;
+        }
+        return c / gdk < 1d;
     }
 
 
@@ -463,8 +487,9 @@ public class Controller implements Initializable {
 
     @FXML
     public void windData() {
+        dataMap.clear();
         var fileopen = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
-        fileopen.showDialog(null, "Виберіть текстовий файл з даними вітру");
+        fileopen.showDialog(null, "Виберіть текстовий файл з даними");
         File file = fileopen.getSelectedFile();
         String s = file.getPath();
         List<String> listString = new ArrayList<>();
@@ -474,17 +499,18 @@ public class Controller implements Initializable {
             e.printStackTrace();
         }
         listString = listString.stream().map(v -> v.replaceAll("\\s+", " ").trim()).collect(Collectors.toList());
-        windData = Helper.convertToDoubleArray(listString);
-
-        //filling comboBoxForDays:
-        if (windData.length > 0) {
-            ObservableList<Integer> days = FXCollections.observableArrayList();
-            for (int i = 1; i <= windData.length; i++) {
-                days.add(i);
-            }
-            comboBoxForDays.setItems(days);
-            comboBoxForDays.setValue(days.get(0));
+        listString.remove(0);
+        ObservableList<String> days = FXCollections.observableArrayList();
+        for (int i = 0; i < listString.size(); i++) {
+            var values = Arrays.stream(listString.get(i).trim().split("\\s+")).collect(Collectors.toList());
+            var date = values.get(0).trim();
+            values.remove(0);
+            var otherData = values.stream().map(Double::parseDouble).collect(Collectors.toList());
+            dataMap.put(date, otherData);
+            days.add(date);
         }
+        comboBoxForDays.setItems(days);
+        comboBoxForDays.setValue(days.get(0));
     }
 
     private void readWindValue() {
