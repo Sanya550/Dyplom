@@ -8,6 +8,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 
@@ -29,7 +30,6 @@ public class Controller implements Initializable {
     /**
      * Середньодобова vs Максимально разова ГДК
      */
-    //todo for Average GDK: SO2 = 0.05, NO2 = 0.04
     private static final double MAX_GDK_SO2 = 0.5;
     private static final double MAX_GDK_NO2 = 0.2;
 
@@ -48,12 +48,16 @@ public class Controller implements Initializable {
     public static int vectorOfWind;
 
     public static Map<String, List<Double>> dataMap = new LinkedHashMap<>();
+    public static Map<Integer, String> mapTripilska = new LinkedHashMap<>();
 
     @FXML
     private ComboBox<String> comboBoxForDays;
 
     @FXML
     private ComboBox<Integer> comboBoxForH;
+
+    @FXML
+    private ComboBox<Integer> comboBoxTripilska;
 
     @FXML
     private ComboBox<String> comboBoxChemistryElements;
@@ -96,13 +100,31 @@ public class Controller implements Initializable {
     }
 
     @FXML
+    public void tripilska() {
+        var val = comboBoxTripilska.getValue();
+        GraphicsContext gc = heatmapCanvas.getGraphicsContext2D();
+        gc.clearRect(0, 0, heatmapCanvas.getWidth(), heatmapCanvas.getHeight());
+
+        drawHeatMapWithRadius(val);
+
+        var path = mapTripilska.get(val);
+        Image image = new Image(path);
+        gc.setGlobalAlpha(0.5);
+        gc.drawImage(image, 0, 0, heatmapCanvas.getWidth(), heatmapCanvas.getHeight());
+    }
+
+    @FXML
     private void drawHeatmap() {
-        vectorOfWind = (int)Math.round(dataMap.get(comboBoxForDays.getValue()).get(0));
+        int r = parseInt(radiusForHeatMap.getText());
+        drawHeatMapWithRadius(r);
+    }
+
+    private void drawHeatMapWithRadius( int r) {
+        vectorOfWind = (int) Math.round(dataMap.get(comboBoxForDays.getValue()).get(0));
         uValue = dataMap.get(comboBoxForDays.getValue()).get(1);
         double z = parseDouble(rubZ.getText());
         double hEf = comboBoxForH.getValue();
         double q = getPowerValue();
-        int r = parseInt(radiusForHeatMap.getText());
         drawHeatMap(vectorOfWind, r, q, uValue, z, hEf);
     }
 
@@ -191,9 +213,9 @@ public class Controller implements Initializable {
     private double getPowerValue() {
         double qValue;
         if (comboBoxChemistryElements.getValue().contains("NO2")) {
-            qValue = 5330.1;
+            qValue = 3820.8;
         } else {
-            qValue = 4921.3;
+            qValue = 33595.3;
         }
         return qValue;
     }
@@ -480,16 +502,12 @@ public class Controller implements Initializable {
         return c / gdk < 1d;
     }
 
-
-    /**
-     * Частина яка нижче не використовується
-     */
-
     @FXML
     public void windData() {
         dataMap.clear();
         var fileopen = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
-        fileopen.showDialog(null, "Виберіть текстовий файл з даними");
+        fileopen.setDialogTitle("Виберіть текстовий файл з даними");
+        fileopen.showDialog(null, "OK");
         File file = fileopen.getSelectedFile();
         String s = file.getPath();
         List<String> listString = new ArrayList<>();
@@ -511,6 +529,39 @@ public class Controller implements Initializable {
         }
         comboBoxForDays.setItems(days);
         comboBoxForDays.setValue(days.get(0));
+    }
+
+    @FXML
+    public void readTripilska() {
+        mapTripilska.clear();
+        var fileChooser = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        fileChooser.setDialogTitle("Виберіть папку, в якій знаходяться фотографії карт");
+
+        int returnValue = fileChooser.showDialog(null, "OK");
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            File selectedFolder = fileChooser.getSelectedFile();
+            String folderPath = selectedFolder.getAbsolutePath();
+
+            List<String> pngFiles = new ArrayList<>();
+            File[] files = selectedFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".png"));
+            if (files != null) {
+                for (File file : files) {
+                    pngFiles.add(file.getName());
+                }
+            }
+
+            var intPng = pngFiles.stream().map(v -> Integer.parseInt(v.split("\\.")[0])).collect(Collectors.toList());
+            intPng.sort(Comparator.naturalOrder());
+            ObservableList<Integer> observableListData = FXCollections.observableArrayList(intPng);
+            comboBoxTripilska.setItems(observableListData);
+            comboBoxTripilska.setValue(observableListData.get(0));
+
+            for (int i = 0; i < intPng.size(); i++) {
+                mapTripilska.put(intPng.get(i), String.format("%s\\%d.png", folderPath, intPng.get(i)));
+            }
+
+        }
     }
 
     private void readWindValue() {
