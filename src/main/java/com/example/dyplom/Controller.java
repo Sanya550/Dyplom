@@ -26,12 +26,14 @@ import static java.lang.Double.parseDouble;
 import static java.lang.Integer.parseInt;
 
 public class Controller implements Initializable {
+    private final static double NOX = 3820.8;
+    private final static double SO2 = 33595.3;
 
     /**
      * Середньодобова vs Максимально разова ГДК
      */
     private static final double MAX_GDK_SO2 = 0.5;
-    private static final double MAX_GDK_NO2 = 0.2;
+    private static final double MAX_GDK_NOX = 0.2;
 
     //berliand page 43 stan = 3;
     private static double alfaDifusion;
@@ -94,7 +96,7 @@ public class Controller implements Initializable {
         comboBoxForH.setItems(optionsForH);
         comboBoxForH.setValue(optionsForH.get(1));
 
-        var optionsForChemistry = FXCollections.observableArrayList("SO2", "NO2");
+        var optionsForChemistry = FXCollections.observableArrayList("SO2", "NOx");
         comboBoxChemistryElements.setItems(optionsForChemistry);
         comboBoxChemistryElements.setValue(optionsForChemistry.get(0));
     }
@@ -122,8 +124,8 @@ public class Controller implements Initializable {
     private void drawHeatMapWithRadius( int r) {
         vectorOfWind = (int) Math.round(dataMap.get(comboBoxForDays.getValue()).get(0));
         uValue = dataMap.get(comboBoxForDays.getValue()).get(1);
-        double z = parseDouble(rubZ.getText());
         double hEf = comboBoxForH.getValue();
+        double z = hEf;//on the same high
         double q = getPowerValue();
         drawHeatMap(vectorOfWind, r, q, uValue, z, hEf);
     }
@@ -191,7 +193,7 @@ public class Controller implements Initializable {
     }
 
     private double getKvantilForKoefOfChemistry() {
-        if (comboBoxChemistryElements.getValue().contains("NO2")) {
+        if (comboBoxChemistryElements.getValue().contains("NOx")) {
             return 3 * 0.000001;
         } else {
             return 14 * 0.000001;
@@ -211,13 +213,11 @@ public class Controller implements Initializable {
     }
 
     private double getPowerValue() {
-        double qValue;
-        if (comboBoxChemistryElements.getValue().contains("NO2")) {
-            qValue = 3820.8;
+        if (comboBoxChemistryElements.getValue().contains("NOx")) {
+            return NOX;
         } else {
-            qValue = 33595.3;
+            return SO2;
         }
-        return qValue;
     }
 
     private void drawHeatMap(int vector, int radius, double q, double u, double coordinateH, double startH) {
@@ -494,8 +494,8 @@ public class Controller implements Initializable {
 
     private boolean gdkValueIsAcceptable(double c) {
         var gdk = 0d;
-        if (comboBoxChemistryElements.getValue().contains("NO2")) {
-            gdk = MAX_GDK_NO2;
+        if (comboBoxChemistryElements.getValue().contains("NOx")) {
+            gdk = MAX_GDK_NOX;
         } else {
             gdk = MAX_GDK_SO2;
         }
@@ -562,12 +562,6 @@ public class Controller implements Initializable {
             }
 
         }
-    }
-
-    private void readWindValue() {
-//        var windVal = parseInt(String.valueOf(comboBoxForVector.getValue().charAt(0))) - 1;
-//        var day = comboBoxForDays.getValue();
-//        uValue = windData[day][windVal];
     }
 
     private double[][] divideOnTwoMatrix(double[][] matrix) {
